@@ -7,10 +7,11 @@
 #include "constant.h"
 #include "qkeyboard.h"
 
+#include <QtWidgets>
 #include <QVBoxLayout>
 
 #ifdef DEVICE_EVB
-int wlan_bottom_margin = 500;
+int wlan_bottom_margin = 50;
 #else
 int wlan_bottom_margin = 80;
 #endif
@@ -58,14 +59,12 @@ WlanMainWidget::WlanMainWidget(QWidget *parent) : BaseWidget(parent)
 void WlanMainWidget::initData()
 {
     creat_supplicant_file();
-    m_manager = WPAManager::getInstance(this);
+    QDesktopWidget *desktopwidget = QApplication::desktop();
+    QRect desktoprect = desktopwidget->availableGeometry();
+    int base = qMin(desktoprect.width(), desktoprect.height());
 
-/* TODO: we shoud need set it for fullscreen mode */ 
-#ifdef DEVICE_EVB
-    QKeyBoard::getInstance()->globalInit(QKeyBoard::Black, 40, 6);
-#else
-    QKeyBoard::getInstance()->globalInit(QKeyBoard::Black, 45, 16);
-#endif
+    m_manager = WPAManager::getInstance(this);
+    QKeyBoard::getInstance()->globalInit(QKeyBoard::Black, base / 17, (base * 3) / (17 * 4));
 }
 
 void WlanMainWidget::initLayout()
@@ -139,14 +138,16 @@ void WlanMainWidget::slot_onScanResultComeIn(QList<netWorkItem> list)
         if (item.ssid == "" || m_table->hasSSIDName(item.ssid))
             continue;
 
+        //qDebug("WLAN: scan result item.ssid: %s", item.ssid.toLocal8Bit().data());
         for (int j = 0; j < configuredItems.size(); j++) {
             if (configuredItems.at(j).ssid == item.ssid) {
+                //qDebug("WLAN: configuredItems item.ssid: %s, state: %d", configuredItems.at(j).ssid.toLocal8Bit().data(), configuredItems.at(j).state);
                 item.state = configuredItems.at(j).state;
                 item.networkId = configuredItems.at(j).networkId;
                 break;
             }
         }
-        m_table->insertIntoTable(item.ssid, item.bssid, item.networkId, item.signal, item.flags, item.state);
+        m_table->insertIntoTable(item.ssid, item.bssid, item.networkId, item.signal, item.flags, item.state, item.frequence);
     }
 }
 
@@ -154,18 +155,23 @@ void WlanMainWidget::slot_onTableItemClick(int row, int)
 {
     WifiState itemState = m_table->getItemState(row);
     QString itemSSID = m_table->getItemSSID(row);
+    QString itemAuth = m_table->getItemAuth(row);
+    int itemLocked = !itemAuth.isEmpty() && !(itemAuth == "OPEN");
 
-    if (itemState == WIFI_STATE_NULL) {
+    if (itemState == WIFI_STATE_NULL && !itemLocked) {
+        // supplicant add_network and setlect_network
+        m_manager->connectNetwork(itemSSID, QString(), m_table->getItemAuth(row));
+    } else if (itemState == WIFI_STATE_NULL) {
         NetConnectDialog *dialog = new NetConnectDialog(this);
         dialog->setWifiName(itemSSID);
 
         int result = dialog->exec();
         if (result == NetConnectDialog::RESULT_CONNECT) {
             // supplicant add_network and setlect_network
-            m_manager->connectNetwork(itemSSID, dialog->getEditText());
+            m_manager->connectNetwork(itemSSID, dialog->getEditText(), m_table->getItemAuth(row));
         }
     } else if (itemState == WIFI_STATE_CONNECTED) {
-        int result = NetConnectedInfoDialog::showDialog(this, itemSSID, m_table->getItemSignalString(row));
+        int result = NetConnectedInfoDialog::showDialog(this, itemSSID, m_table->getItemSignalString(row), m_table->getItemFreqString(row));
         if (result == NetConnectedInfoDialog::RESULT_CANCEL_SAVE) {
             m_manager->removeNetwork(m_table->getItemNetworkId(row));
             m_table->setItemState(row, WIFI_STATE_NULL);
@@ -187,6 +193,7 @@ void WlanMainWidget::slot_onItemConnecting(QString itemSSID)
 {
     qDebug("WLAN: item connecting: %s", itemSSID.toLocal8Bit().data());
     for (int i = 0; i < m_table->rowCount(); i++) {
+        qDebug("WLAN: getItemSSID: %s", m_table->getItemSSID(i).toLocal8Bit().data());
         if (m_table->getItemSSID(i) == itemSSID) {
             m_table->resetConnnectingItem();
             m_table->setItemState(i, WIFI_STATE_CONNECTING);
@@ -200,6 +207,7 @@ void WlanMainWidget::slot_onItemConnectFailed(QString itemSSID)
 {
     qDebug("WLAN: item connect failed with ssid: %s", itemSSID.toLocal8Bit().data());
     for (int i = 0; i < m_table->rowCount(); i++) {
+        qDebug("WLAN: getItemSSID: %s", m_table->getItemSSID(i).toLocal8Bit().data());
         if (m_table->getItemSSID(i) == itemSSID) {
             m_table->setItemState(i, WIFI_STATE_AUTH_FAILED);
             m_table->sortTable();
@@ -212,8 +220,10 @@ void WlanMainWidget::slot_onItemConnectComplete(QString itemBSSID)
 {
     qDebug("WLAN: item connect complete with bssid: %s", itemBSSID.toLocal8Bit().data());
     for (int i = 0; i < m_table->rowCount(); i++) {
+        qDebug("WLAN: item getItemBSSID: %s", m_table->getItemBSSID(i).toLocal8Bit().data());
         if (m_table->getItemBSSID(i) == itemBSSID) {
             get_IP_address();
+            qDebug("WLAN: item setItemState WIFI_STATE_CONNECTED i: %d", i);
             m_table->setItemState(i, WIFI_STATE_CONNECTED);
             m_table->sortTable();
             return;
