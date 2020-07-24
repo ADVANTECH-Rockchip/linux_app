@@ -48,50 +48,38 @@
 **
 ****************************************************************************/
 
-#include "qplayer.h"
-#include <QApplication>
-#include <QCommandLineParser>
-#include <QCommandLineOption>
-#include <QDebug>
-#include <QDir>
-#include <QtWidgets>
+#ifndef QTCAMERA_H
+#define QTCAMERA_H
 
-int main(int argc, char **argv)
+#include <QBoxLayout>
+#include <QCamera>
+#include <QCameraImageCapture>
+#include <QCameraViewfinder>
+#include <QPushButton>
+#include <QMainWindow>
+#include <QMediaRecorder>
+#include <QScopedPointer>
+
+class multiCamera : public QMainWindow
 {
-    QApplication app(argc, argv);
+    Q_OBJECT
 
-    QCoreApplication::setApplicationName("QPlayer");
-    QCoreApplication::setOrganizationName("QtProject");
-    QCoreApplication::setApplicationVersion(QT_VERSION_STR);
-    QCommandLineParser parser;
-    parser.setApplicationDescription("Qt MultiMedia Player");
-    parser.addHelpOption();
-    parser.addVersionOption();
-    parser.addPositionalArgument("url", "The URL to open.");
-    parser.process(app);
+public:
+    multiCamera();
 
-    QPlayer player;
+private slots:
+    void on_exitClicked();
 
-    if (!parser.positionalArguments().isEmpty() && player.isPlayerAvailable()) {
-        player.setPlaylist(parser.positionalArguments());
-        player.play();
-    }else {
-        QUrl url("rtsp://b1.dnsdojo.com:1935/live/sys3.stream");
-        QFile file("/oem/SampleVideo_1280x720_5mb.mp4");
+protected:
+    void closeEvent(QCloseEvent *event) override;
 
-/*        if(url.isValid()){
-            qDebug() << "opening" << url;
-            player.load(url);
-            player.play();
-        }else */if(file.exists()){
-            qDebug() << "opening" << file.fileName();
-            player.load(QUrl::fromLocalFile(file.fileName()));
-            player.play();
-        }
-    }
+private:
+    QCameraViewfinder viewfinder;
+    QScopedPointer<QCamera> m_camera;
 
-    player.show();
+    QList<QCamera*> *cameraList;
+    QList<QCameraViewfinder*> *viewfinderList;
+    QList<QHBoxLayout*> *hLayoutList;
+};
 
-    return app.exec();
-}
-
+#endif

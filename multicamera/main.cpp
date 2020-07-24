@@ -48,50 +48,15 @@
 **
 ****************************************************************************/
 
-#include "qplayer.h"
-#include <QApplication>
-#include <QCommandLineParser>
-#include <QCommandLineOption>
-#include <QDebug>
-#include <QDir>
+#include "multicamera.h"
 #include <QtWidgets>
 
-int main(int argc, char **argv)
+int main(int argc, char *argv[])
 {
     QApplication app(argc, argv);
 
-    QCoreApplication::setApplicationName("QPlayer");
-    QCoreApplication::setOrganizationName("QtProject");
-    QCoreApplication::setApplicationVersion(QT_VERSION_STR);
-    QCommandLineParser parser;
-    parser.setApplicationDescription("Qt MultiMedia Player");
-    parser.addHelpOption();
-    parser.addVersionOption();
-    parser.addPositionalArgument("url", "The URL to open.");
-    parser.process(app);
-
-    QPlayer player;
-
-    if (!parser.positionalArguments().isEmpty() && player.isPlayerAvailable()) {
-        player.setPlaylist(parser.positionalArguments());
-        player.play();
-    }else {
-        QUrl url("rtsp://b1.dnsdojo.com:1935/live/sys3.stream");
-        QFile file("/oem/SampleVideo_1280x720_5mb.mp4");
-
-/*        if(url.isValid()){
-            qDebug() << "opening" << url;
-            player.load(url);
-            player.play();
-        }else */if(file.exists()){
-            qDebug() << "opening" << file.fileName();
-            player.load(QUrl::fromLocalFile(file.fileName()));
-            player.play();
-        }
-    }
-
-    player.show();
+    multiCamera camera;
+    camera.show();
 
     return app.exec();
-}
-
+};
