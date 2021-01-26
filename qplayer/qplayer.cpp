@@ -58,9 +58,6 @@ QPlayer::QPlayer()
     , playButton(nullptr)
     , positionSlider(nullptr)
 {
-    const QRect screenGeometry = QApplication::desktop()->screenGeometry(this);
-    resize(screenGeometry.width(), screenGeometry.height());
-
     exitButton = new QPushButton(tr("Exit"));
     connect(exitButton, &QAbstractButton::clicked, this, &QPlayer::exit);
 
@@ -102,6 +99,11 @@ QPlayer::QPlayer()
     setCentralWidget(widget);
     setWindowState(Qt::WindowMaximized);
     setWindowFlags(Qt::FramelessWindowHint);
+
+    QPalette palette = QWidget::palette();
+    palette.setColor(QPalette::Window, Qt::black);
+    setPalette(palette);
+
     connect(&player, &QMediaPlayer::stateChanged, this, &QPlayer::mediaStateChanged);
     connect(&player, &QMediaPlayer::positionChanged, this, &QPlayer::positionChanged);
     connect(&player, &QMediaPlayer::durationChanged, this, &QPlayer::durationChanged);
@@ -110,7 +112,6 @@ QPlayer::QPlayer()
             this, &QPlayer::handleError);
     connect(&timer1, &QTimer::timeout, this, &QPlayer::displayImage);
     connect(&timer2, &QTimer::timeout, this, &QPlayer::next);
-
 }
 
 QPlayer::~QPlayer()
@@ -126,7 +127,7 @@ void QPlayer::mouseDoubleClickEvent(QMouseEvent *e)
 {
     if(e->button() == Qt::LeftButton){
         if(isFullScreen()){
-            showNormal();
+            showMaximized();
             control->show();
         }else {
             showFullScreen();
@@ -187,9 +188,8 @@ void QPlayer::displayImage()
     if(! s.compare("image/")){
         QImage img;
         img.load(url.toLocalFile());
-        const QRect screenGeometry = QApplication::desktop()->screenGeometry(this);
-        int w = screenGeometry.width();
-        int h = screenGeometry.height() * 4 /5;
+        int w = geometry().width();
+        int h = geometry().height() * 4 /5;
         imageViewer->setPixmap(QPixmap::fromImage(img.scaled(w, h, Qt::KeepAspectRatio)));
         imageViewer->show();
         if(list->mediaCount() > 1){
@@ -255,6 +255,9 @@ void QPlayer::mediaStateChanged(QMediaPlayer::State state)
     case QMediaPlayer::PlayingState:
         playButton->setIcon(style()->standardIcon(QStyle::SP_MediaPause));
         break;
+    case QMediaPlayer::StoppedState:
+        qApp->exit(0);
+        break;
     default:
         playButton->setIcon(style()->standardIcon(QStyle::SP_MediaPlay));
         break;
@@ -296,9 +299,8 @@ void QPlayer::currentMediaChanged(const QMediaContent &media)
             player.setVideoOutput(new QVideoWidget);
             timer1.start(1);
         }else if (! s.compare("audio/")){
-            const QRect screenGeometry = QApplication::desktop()->screenGeometry(this);
-            int w = screenGeometry.width();
-            int h = screenGeometry.height() - controlLayout->sizeHint().height();
+            int w = geometry().width();
+            int h = geometry().height() - controlLayout->sizeHint().height();
             imageViewer->setPixmap(QPixmap(":/album.jpeg").scaled(w*2/3, h*2/3, Qt::KeepAspectRatio));
             imageViewer->show();
             player.setVideoOutput(new QVideoWidget);
